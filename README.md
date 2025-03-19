@@ -1,7 +1,7 @@
 # H2F-GCN Rehab
 
 ```
-kimore/
+H2F-GCN Rehab/
 │
 ├── requirements.txt                  
 ├── README.md                    
@@ -116,18 +116,3 @@ The Kimore dataset is processed as follows:
 3. Compute Joint Coordinate Descriptors (JCD)
 4. Divide sequences into fixed-size chunks
 5. Normalize features and labels
-
-## Results
-
-The models achieve the following metrics on Exercise 5:
-- MAD: 0.5191
-- RMSE: 0.9774
-- MAPE: 1.33%
-
-## License
-
-[Your License Here]
-
-## Acknowledgements
-
-[Your Acknowledgements Here]
