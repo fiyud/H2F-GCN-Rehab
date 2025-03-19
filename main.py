@@ -19,7 +19,7 @@ from utils.visualization import predict_and_visualize, visualize_skeleton, creat
 from data.preprocessing import preprocess_data_and_labels, get_JCD
 
 def parse_args():
-    parser = argparse.ArgumentParser(description='Kimore Movement Assessment with GCN')
+    parser = argparse.ArgumentParser(description='H2F-GCN')
     
     parser.add_argument('--data_path', type=str, default='Kimore', help='Path to the Kimore dataset')
     parser.add_argument('--exercise', type=int, default=5, choices=[1, 2, 3, 4, 5], 

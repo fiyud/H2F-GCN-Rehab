@@ -14,7 +14,7 @@ from utils.visualization import (
 )
 
 def parse_args():
-    parser = argparse.ArgumentParser(description='Evaluate pre-trained Kimore GCN Model')
+    parser = argparse.ArgumentParser(description='Evaluate H2F-GCN Model')
     
     parser.add_argument('--data_path', type=str, default='Kimore', help='Path to the Kimore dataset')
     parser.add_argument('--exercise', type=int, default=5, choices=[1, 2, 3, 4, 5], 
