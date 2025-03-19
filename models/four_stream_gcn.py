@@ -4,7 +4,7 @@ import torch.nn.functional as F
 from torch_geometric.nn import GCNConv
 from torch.nn import TransformerEncoder, TransformerEncoderLayer
 
-from models.modules.hyper_compute import HyperComputeModule
+from models.modules.DDHG import HyperComputeModule
 
 class FourStreamGCN_Model(nn.Module):
     def __init__(self, num_joints, num_features, hidden_dim, num_layers, output_dim, feat_d, max_time_step=150, nhead=4, dropout=0.1):

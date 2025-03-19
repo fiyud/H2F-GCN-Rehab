@@ -36,16 +36,12 @@ class GCNConvCustom(MessagePassing):
         return norm.view(-1, 1) * x_j
 
 class ResGCNBlock(nn.Module):
-    """
-    Residual GCN block with improved stability
-    """
     def __init__(self, in_channels, out_channels, dropout=0.1):
         super(ResGCNBlock, self).__init__()
         self.gcn = GCNConvCustom(in_channels, out_channels)
         self.norm = nn.LayerNorm(out_channels)
         self.dropout = nn.Dropout(dropout)
         
-        # Residual connection with projection if needed
         self.has_proj = in_channels != out_channels
         if self.has_proj:
             self.proj = nn.Linear(in_channels, out_channels)
