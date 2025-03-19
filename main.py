@@ -41,8 +41,8 @@ def parse_args():
     parser.add_argument('--seed', type=int, default=100, help='Random seed for reproducibility')
     parser.add_argument('--test_size', type=float, default=0.2, help='Test set ratio')
     
-    parser.add_argument('--device', type=str, default='', 
-                        help='Device to use (leave empty for auto-detection)')
+    parser.add_argument('--device', type=str, default='cuda')
+
     parser.add_argument('--save_model', action='store_true', help='Save best model')
     parser.add_argument('--model_path', type=str, default='best_model.pth', help='Path to save/load model')
     parser.add_argument('--visualize', action='store_true', help='Visualize predictions')
@@ -63,6 +63,9 @@ def main():
 
     set_seed(args.seed)
 
+    # device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+    print(args.device)
     print(f"Loading Kimore dataset from {args.data_path}...")
     data = load_kimore_data(args.data_path)
     

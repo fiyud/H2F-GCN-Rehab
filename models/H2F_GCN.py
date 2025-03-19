@@ -41,7 +41,6 @@ class ThreeStreamGCN_ModelvB(nn.Module):
         self.spatial_gcn1 = GCNConv(num_features, hidden_dim)
         self.spatial_gcn2 = GCNConv(hidden_dim, hidden_dim)
         
-        # Fusion layer with concatenation
         concat_size = num_joints * hidden_dim + hidden_dim + hidden_dim
         
         self.fusion_layer = nn.Sequential(
@@ -78,7 +77,6 @@ class ThreeStreamGCN_ModelvB(nn.Module):
         skeleton_x = F.relu(self.skeleton_gcn2(skeleton_x, edge_index))
         skeleton_x = skeleton_x.view(batch_size * time_step, num_joints, -1)  # [batch_size * time_step, num_joints, hidden_dim]
         
-        # Apply HyperComputeModule
         hyper_input = skeleton_x.permute(0, 2, 1).unsqueeze(-1)  # [batch_size * time_step, hidden_dim, num_joints, 1]
         hyper_output = self.skeleton_hyper_module(hyper_input)
         skeleton_x = hyper_output.squeeze(-1).permute(0, 2, 1)  # [batch_size * time_step, num_joints, hidden_dim]
@@ -92,10 +90,8 @@ class ThreeStreamGCN_ModelvB(nn.Module):
         skeleton_features = skeleton_features.reshape(batch_size, time_step, num_joints * self.hidden_dim)
         
         #------- STREAM 2: Process JCD features (simplified) -------#
-        # Reshape for GCN processing
         jcd_flat = jcd.reshape(-1, jcd.size(-1))  # [batch_size * time_step, feat_d]
         
-        # Apply GCN layers only (no transformer)
         jcd_features = F.relu(self.jcd_gcn1(jcd_flat, jcd_edge_index))
         jcd_features = F.relu(self.jcd_gcn2(jcd_features, jcd_edge_index))
         
@@ -115,7 +111,6 @@ class ThreeStreamGCN_ModelvB(nn.Module):
                 spatial_edge_index[1, idx] = j
                 idx += 1
         
-        # Process with GCN to capture global spatial patterns
         spatial_x = x.reshape(-1, num_features)  # [batch_size * time_step * num_joints, num_features]
         spatial_features = F.relu(self.spatial_gcn1(spatial_x, spatial_edge_index))
         spatial_features = F.relu(self.spatial_gcn2(spatial_features, spatial_edge_index))
@@ -125,20 +120,16 @@ class ThreeStreamGCN_ModelvB(nn.Module):
         spatial_features = torch.mean(spatial_features, dim=2)  # [batch_size, time_step, hidden_dim]
         
         #------- Fusion using Concatenation -------#
-        # Concatenate all streams (removed temporal stream)
         combined_features = torch.cat([
             skeleton_features,            # [batch_size, time_step, num_joints * hidden_dim]
             jcd_features,                 # [batch_size, time_step, hidden_dim]
             spatial_features              # [batch_size, time_step, hidden_dim]
         ], dim=2)
         
-        # Apply fusion layer
         fused_features = self.fusion_layer(combined_features)  # [batch_size, time_step, hidden_dim]
         
-        # Apply GRU
         gru_out, _ = self.gru(fused_features)  # [batch_size, time_step, hidden_dim]
-        
-        # Final prediction
+
         out = self.fc(gru_out[:, -1, :])  # [batch_size, output_dim]
         
         return out

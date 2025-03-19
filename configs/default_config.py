@@ -2,7 +2,7 @@ DATA_PATH = 'Kimore'
 EXERCISE = 5  # Default to exercise 5
 CHUNK_SIZE = 50  # Size of sequence chunks
 
-MODEL = 'three_stream'  # 'three_stream' or 'four_stream'
+MODEL = 'three_stream'
 HIDDEN_DIM = 128
 NUM_LAYERS = 3
 NUM_HEADS = 4
@@ -14,7 +14,7 @@ LEARNING_RATE = 0.001
 TEST_SIZE = 0.2
 SEED = 100
 
-VISUALIZE = False
+VISUALIZE = True
 VIS_RATIO = 0.3
 
 EDGE_CONNECTIONS = [
