@@ -1,6 +1,6 @@
 # H2F-GCN Rehab
 
-bash```
+```
 kimore/
 │
 ├── requirements.txt                  
