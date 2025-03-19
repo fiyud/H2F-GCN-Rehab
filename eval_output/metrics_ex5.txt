@@ -1,0 +1,9 @@
+EVALUATION METRICS
+=================
+Exercise: 5
+Model: three_stream
+Model path: F:/2025/H2F-GCN-Rehab/best_model.pth
+
+MAD: 6.5964
+RMSE: 9.0778
+MAPE: 25.74%

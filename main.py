@@ -34,7 +34,7 @@ def parse_args():
     parser.add_argument('--num_heads', type=int, default=4, help='Number of attention heads')
     parser.add_argument('--dropout', type=float, default=0.15, help='Dropout rate')
     
-    parser.add_argument('--epochs', type=int, default=500, help='Number of training epochs')
+    parser.add_argument('--epochs', type=int, default=5, help='Number of training epochs')
     parser.add_argument('--batch_size', type=int, default=32, help='Batch size')
     parser.add_argument('--lr', type=float, default=0.001, help='Learning rate')
     parser.add_argument('--chunk_size', type=int, default=50, help='Chunk size for sequences')
@@ -43,9 +43,9 @@ def parse_args():
     
     parser.add_argument('--device', type=str, default='cuda')
 
-    parser.add_argument('--save_model', action='store_true', help='Save best model')
+    parser.add_argument('--save_model', action='store_true', default=True, help='Save best model')
     parser.add_argument('--model_path', type=str, default='best_model.pth', help='Path to save/load model')
-    parser.add_argument('--visualize', action='store_true', help='Visualize predictions')
+    parser.add_argument('--visualize', action='store_true', default=True, help='Visualize predictions')
     parser.add_argument('--vis_ratio', type=float, default=0.3, 
                         help='Ratio of test samples to visualize')
     
@@ -239,7 +239,7 @@ def main():
     print(f"- MAPE: {best_mape:.2f}%")
     print("=" * 40)
     
-    if args.visualize:
+    if args.visualize == True:
         print("Visualizing predictions...")
         if best_model_state is not None:
             model.load_state_dict(best_model_state)
