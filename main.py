@@ -5,10 +5,9 @@ import os
 import torch
 import argparse
 import numpy as np
-import pandas as pd
 from torch import optim
-from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader
+from sklearn.model_selection import train_test_split
 
 from data.data_loader import load_kimore_data, preprocess_merged_data
 from data.dataset import CustomDataset
@@ -16,11 +15,11 @@ from models.H2F_GCN import ThreeStreamGCN_ModelvB
 from models.four_stream_gcn import FourStreamGCN_Model
 from utils.seed import set_seed
 from utils.metrics import compute_metrics
-from utils.visualization import predict_and_visualize
+from utils.visualization import predict_and_visualize, visualize_skeleton, create_skeleton_animation
 from data.preprocessing import preprocess_data_and_labels, get_JCD
 
 def parse_args():
-    parser = argparse.ArgumentParser(description='H2F-GCN')
+    parser = argparse.ArgumentParser(description='Kimore Movement Assessment with GCN')
     
     parser.add_argument('--data_path', type=str, default='Kimore', help='Path to the Kimore dataset')
     parser.add_argument('--exercise', type=int, default=5, choices=[1, 2, 3, 4, 5], 
@@ -41,13 +40,19 @@ def parse_args():
     parser.add_argument('--seed', type=int, default=100, help='Random seed for reproducibility')
     parser.add_argument('--test_size', type=float, default=0.2, help='Test set ratio')
     
-    parser.add_argument('--device', type=str, default='cuda')
-
-    parser.add_argument('--save_model', action='store_true', default=True, help='Save best model')
+    parser.add_argument('--device', type=str, default='', 
+                        help='Device to use (leave empty for auto-detection)')
+    parser.add_argument('--save_model', action='store_true', help='Save best model')
     parser.add_argument('--model_path', type=str, default='best_model.pth', help='Path to save/load model')
     parser.add_argument('--visualize', action='store_true', default=True, help='Visualize predictions')
     parser.add_argument('--vis_ratio', type=float, default=0.3, 
                         help='Ratio of test samples to visualize')
+    parser.add_argument('--visualize_skeleton', action='store_true', default=True,
+                        help='Visualize skeleton data')
+    parser.add_argument('--create_animation', action='store_true', default=True,
+                        help='Create skeleton animations')
+    parser.add_argument('--output_folder', type=str, default='visualization_output',
+                        help='Folder to save visualization outputs')
     
     args = parser.parse_args()
     
@@ -60,16 +65,16 @@ def parse_args():
 
 def main():
     args = parse_args()
-
+    
     set_seed(args.seed)
-
-    # device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-
-    print(args.device)
+    
+    print("Using device:", args.device)
     print(f"Loading Kimore dataset from {args.data_path}...")
     data = load_kimore_data(args.data_path)
     
+    import pandas as pd
     df = pd.DataFrame(data)
+    
     cols_to_convert = [col for col in df.columns if '-p' in col or '-o' in col]
     df[cols_to_convert] = df[cols_to_convert].applymap(lambda x: np.array(x) if isinstance(x, list) else x)
     
@@ -86,6 +91,7 @@ def main():
     df_merged = preprocess_merged_data(df_ex)
     data_tensor, labels_tensor = preprocess_data_and_labels(df_merged, args.chunk_size)
     position_data = data_tensor[:, :, :, 4:] 
+    
     JCD = get_JCD(position_data)
     
     train_data, test_data, train_jcd, test_jcd, train_labels, test_labels = train_test_split(
@@ -140,7 +146,7 @@ def main():
             nhead=args.num_heads,
             dropout=args.dropout
         )
-    else:
+    else:  # four_stream
         model = FourStreamGCN_Model(
             num_joints=num_joints,
             num_features=num_features,
@@ -170,6 +176,7 @@ def main():
         train_loss = 0.0
     
         for batch_idx, (data, jcd, labels) in enumerate(train_loader):
+            # Move data to device
             data = data.to(args.device)
             jcd = jcd.to(args.device)
             labels = labels.to(args.device)
@@ -239,11 +246,50 @@ def main():
     print(f"- MAPE: {best_mape:.2f}%")
     print("=" * 40)
     
-    if args.visualize == True:
-        print("Visualizing predictions...")
-        if best_model_state is not None:
-            model.load_state_dict(best_model_state)
-        predict_and_visualize(model, test_loader, args.device, edge_index, args.vis_ratio, args.seed)
+    # Create output folder if it doesn't exist
+    os.makedirs(args.output_folder, exist_ok=True)
+    print(f"\nSaving visualizations to {args.output_folder}...")
+    
+    print("Visualizing predictions...")
+    if best_model_state is not None:
+        model.load_state_dict(best_model_state)
+    
+    predict_and_visualize(
+        model, 
+        test_loader, 
+        args.device, 
+        edge_index, 
+        args.vis_ratio, 
+        args.seed,
+        save_path=os.path.join(args.output_folder, f"predictions_ex{args.exercise}.png")
+    )
+    
+    if args.visualize_skeleton:
+        print("Visualizing skeleton data...")
+        for batch_idx, (data, jcd, labels) in enumerate(test_loader):
+            position_data = data[:, :, :, 4:7].to('cpu')
+            
+            for sample_idx in range(min(3, len(data))):
+                for frame_idx in [0, int(data.shape[1]/2), data.shape[1]-1]:
+                    vis_path = os.path.join(args.output_folder, f"skeleton_ex{args.exercise}_sample{sample_idx}_frame{frame_idx}.png")
+                    visualize_skeleton(
+                        position_data, 
+                        frame_idx=frame_idx, 
+                        sample_idx=sample_idx,
+                        save_path=vis_path
+                    )
+            
+            if args.create_animation:
+                print("Creating skeleton animations...")
+                for sample_idx in range(min(2, len(data))):
+                    anim_path = os.path.join(args.output_folder, f"animation_ex{args.exercise}_sample{sample_idx}.gif")
+                    create_skeleton_animation(
+                        position_data,
+                        sample_idx=sample_idx,
+                        output_file=anim_path
+                    )
+            
+            break
 
 if __name__ == "__main__":
     main()

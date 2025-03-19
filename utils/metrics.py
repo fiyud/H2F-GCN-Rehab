@@ -2,8 +2,8 @@ import torch
 import numpy as np
 
 def compute_metrics(y_true, y_pred):
-    y_true = y_true * 50  # Scale true labels
-    y_pred = y_pred * 50  # Scale predictions
+    y_true = y_true * 50
+    y_pred = y_pred * 50
 
     abs_error = torch.abs(y_true - y_pred)
     
