@@ -1,7 +1,7 @@
 # H2F-GCN Rehab
 
 ```
-kimore/
+H2F-GCN Rehab/
 │
 ├── requirements.txt                  
 ├── README.md                    
