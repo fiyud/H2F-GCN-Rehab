@@ -5,7 +5,10 @@ import os
 import torch
 import argparse
 import numpy as np
+import pandas as pd
 from torch import optim
+from sklearn.model_selection import train_test_split
+from torch.utils.data import DataLoader
 
 from data.data_loader import load_kimore_data, preprocess_merged_data
 from data.dataset import CustomDataset
@@ -14,16 +17,15 @@ from models.four_stream_gcn import FourStreamGCN_Model
 from utils.seed import set_seed
 from utils.metrics import compute_metrics
 from utils.visualization import predict_and_visualize
+from data.preprocessing import preprocess_data_and_labels, get_JCD
 
 def parse_args():
-    parser = argparse.ArgumentParser(description='Kimore Movement Assessment with GCN')
+    parser = argparse.ArgumentParser(description='H2F-GCN')
     
-    # Data parameters
     parser.add_argument('--data_path', type=str, default='Kimore', help='Path to the Kimore dataset')
     parser.add_argument('--exercise', type=int, default=5, choices=[1, 2, 3, 4, 5], 
                         help='Exercise number to use (1-5)')
     
-    # Model parameters
     parser.add_argument('--model', type=str, default='three_stream', 
                         choices=['three_stream', 'four_stream'], 
                         help='Model architecture to use')
@@ -32,7 +34,6 @@ def parse_args():
     parser.add_argument('--num_heads', type=int, default=4, help='Number of attention heads')
     parser.add_argument('--dropout', type=float, default=0.15, help='Dropout rate')
     
-    # Training parameters
     parser.add_argument('--epochs', type=int, default=500, help='Number of training epochs')
     parser.add_argument('--batch_size', type=int, default=32, help='Batch size')
     parser.add_argument('--lr', type=float, default=0.001, help='Learning rate')
@@ -40,7 +41,6 @@ def parse_args():
     parser.add_argument('--seed', type=int, default=100, help='Random seed for reproducibility')
     parser.add_argument('--test_size', type=float, default=0.2, help='Test set ratio')
     
-    # Other parameters
     parser.add_argument('--device', type=str, default='', 
                         help='Device to use (leave empty for auto-detection)')
     parser.add_argument('--save_model', action='store_true', help='Save best model')
@@ -51,7 +51,6 @@ def parse_args():
     
     args = parser.parse_args()
     
-    # Set device
     if not args.device:
         args.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     else:
@@ -61,60 +60,38 @@ def parse_args():
 
 def main():
     args = parse_args()
-    
-    # Set seeds for reproducibility
+
     set_seed(args.seed)
-    
-    # Load and preprocess data
+
     print(f"Loading Kimore dataset from {args.data_path}...")
     data = load_kimore_data(args.data_path)
     
-    # Process data into dataframe
-    import pandas as pd
     df = pd.DataFrame(data)
-    
-    # Convert lists to numpy arrays
     cols_to_convert = [col for col in df.columns if '-p' in col or '-o' in col]
     df[cols_to_convert] = df[cols_to_convert].applymap(lambda x: np.array(x) if isinstance(x, list) else x)
     
-    # Fix group labels if needed (this was in the original notebook)
     if 2 in df.index and 'Group' in df.columns:
         df.at[2, 'Group'] = "E"
         df.at[3, 'Group'] = "E"
         df.at[4, 'Group'] = "E"
     
-    # Clean data
     df = df.dropna().reset_index(drop=True)
     
-    # Filter by exercise number
     df_ex = df[df['Exercise'] == args.exercise].reset_index(drop=True)
     print(f"Using exercise {args.exercise} data: {len(df_ex)} samples")
     
-    # Create merged data
     df_merged = preprocess_merged_data(df_ex)
-    
-    # Process data into tensors
-    from data.preprocessing import preprocess_data_and_labels, get_JCD
     data_tensor, labels_tensor = preprocess_data_and_labels(df_merged, args.chunk_size)
-    
-    # Extract position data for JCD calculation
     position_data = data_tensor[:, :, :, 4:] 
-    
-    # Calculate JCD features
     JCD = get_JCD(position_data)
     
-    # Create dataset and split into train/test
-    from sklearn.model_selection import train_test_split
     train_data, test_data, train_jcd, test_jcd, train_labels, test_labels = train_test_split(
         data_tensor, JCD, labels_tensor, test_size=args.test_size, random_state=args.seed
     )
     
-    # Create datasets
     train_dataset = CustomDataset(train_data, train_jcd, train_labels)
     test_dataset = CustomDataset(test_data, test_jcd, test_labels)
     
-    # Create dataloaders
-    from torch.utils.data import DataLoader
     g = torch.Generator()
     g.manual_seed(args.seed)
     
@@ -134,7 +111,6 @@ def main():
         worker_init_fn=lambda worker_id: np.random.seed(args.seed + worker_id)
     )
     
-    # Define edge connections for skeleton graph
     edges = [
         (0, 1), (1, 2), (2, 3), (3, 4), 
         (4, 5), (5, 6), (6, 7), 
@@ -146,7 +122,6 @@ def main():
     ]
     edge_index = torch.tensor(edges, dtype=torch.long).t().contiguous()
     
-    # Create model
     num_joints = 25
     num_features = 7
     output_dim = 1  # For cTS prediction
@@ -162,7 +137,7 @@ def main():
             nhead=args.num_heads,
             dropout=args.dropout
         )
-    else:  # four_stream
+    else:
         model = FourStreamGCN_Model(
             num_joints=num_joints,
             num_features=num_features,
@@ -176,11 +151,9 @@ def main():
     
     model.to(args.device)
     
-    # Define loss and optimizer
     criterion = torch.nn.MSELoss()
     optimizer = optim.Adam(model.parameters(), lr=args.lr)
     
-    # Training loop
     best_rmse = float('inf')
     best_mad = float('inf')
     best_mape = float('inf')
@@ -194,7 +167,6 @@ def main():
         train_loss = 0.0
     
         for batch_idx, (data, jcd, labels) in enumerate(train_loader):
-            # Move data to device
             data = data.to(args.device)
             jcd = jcd.to(args.device)
             labels = labels.to(args.device)
@@ -235,7 +207,6 @@ def main():
         avg_test_mape = test_mape / len(test_loader)
         avg_test_rmse = test_rmse / len(test_loader)
     
-        # Check and save best model
         is_best = False
         if avg_test_rmse < best_rmse:
             best_rmse = avg_test_rmse
@@ -245,23 +216,19 @@ def main():
             best_model_state = model.state_dict().copy()
             is_best = True
     
-        # Print results
         print(f"Epoch [{epoch+1}/{args.epochs}]")
         print(f"Train Loss: {avg_train_loss:.6f}")
         print(f"Test Loss: {avg_test_loss:.6f}")
         print(f"  - MAD: {avg_test_mad:.4f}, RMSE: {avg_test_rmse:.4f}, MAPE: {avg_test_mape:.2f}")
         
-        # Add notification if this is the best model so far
         if is_best:
             print(f"  ✓ New best result!")
         print("-" * 80)
     
-    # Save best model if requested
     if args.save_model and best_model_state is not None:
         print(f"Saving best model to {args.model_path}")
         torch.save(best_model_state, args.model_path)
     
-    # Print best results after training
     print("\n" + "=" * 40)
     print(f"BEST RESULT (Epoch {best_epoch}):")
     print(f"- MAD: {best_mad:.4f}")
@@ -269,7 +236,6 @@ def main():
     print(f"- MAPE: {best_mape:.2f}%")
     print("=" * 40)
     
-    # Visualize if requested
     if args.visualize:
         print("Visualizing predictions...")
         if best_model_state is not None:
