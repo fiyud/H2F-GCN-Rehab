@@ -12,7 +12,7 @@ from torch.utils.data import DataLoader
 
 from data.data_loader import load_kimore_data, preprocess_merged_data
 from data.dataset import CustomDataset
-from models.three_stream_gcn import ThreeStreamGCN_ModelvB
+from models.H2F_GCN import ThreeStreamGCN_ModelvB
 from models.four_stream_gcn import FourStreamGCN_Model
 from utils.seed import set_seed
 from utils.metrics import compute_metrics
