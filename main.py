@@ -12,6 +12,7 @@ from sklearn.model_selection import train_test_split
 from data.data_loader import load_kimore_data, preprocess_merged_data
 from data.dataset import CustomDataset
 from models.H2F_GCN import ThreeStreamGCN_ModelvB
+from models.H2F_Shift_GCN import ThreeStreamShift_GCN_ModelvB
 from models.four_stream_gcn import FourStreamGCN_Model
 from utils.seed import set_seed
 from utils.metrics import compute_metrics
@@ -26,7 +27,7 @@ def parse_args():
                         help='Exercise number to use (1-5)')
     
     parser.add_argument('--model', type=str, default='three_stream', 
-                        choices=['three_stream', 'four_stream'], 
+                        choices=['three_stream', 'four_stream', 'three_stream_shift_gcn'], 
                         help='Model architecture to use')
     parser.add_argument('--hidden_dim', type=int, default=128, help='Hidden dimension size')
     parser.add_argument('--num_layers', type=int, default=3, help='Number of GRU layers')
@@ -63,9 +64,35 @@ def parse_args():
     
     return args
 
+def compute_pareto_front(metrics_list):
+    """
+    Given a list of metrics [epoch, MAD, RMSE, MAPE], returns the non-dominated (Pareto front) set.
+    A candidate is dominated if there is another candidate that is equal or better in all metrics
+    and strictly better in at least one.
+    """
+    pareto = []
+    for candidate in metrics_list:
+        dominated = False
+        for other in metrics_list:
+            # Compare MAD, RMSE, and MAPE (lower is better)
+            if (other[1] <= candidate[1] and 
+                other[2] <= candidate[2] and 
+                other[3] <= candidate[3] and
+                (other[1] < candidate[1] or other[2] < candidate[2] or other[3] < candidate[3])):
+                dominated = True
+                break
+        if not dominated:
+            pareto.append(candidate)
+    return pareto
+
 def main():
     args = parse_args()
+    # Best model save path for best RMSE
+    glb_model_save_path = os.path.join(args.output_folder, f"best_model_exercise{args.exercise}_shiftgcn.pth")
+    # Checkpoint file that gets overwritten each epoch
+    checkpoint_path = os.path.join(args.output_folder, f"checkpoint_ex{args.exercise}.pth")
     
+    os.makedirs(args.output_folder, exist_ok=True)
     set_seed(args.seed)
     
     print("Using device:", args.device)
@@ -146,6 +173,17 @@ def main():
             nhead=args.num_heads,
             dropout=args.dropout
         )
+    elif args.model == 'three_stream_shift_gcn':
+        model = ThreeStreamShift_GCN_ModelvB(
+            num_joints=num_joints,
+            num_features=num_features,
+            hidden_dim=args.hidden_dim,
+            num_layers=args.num_layers,
+            output_dim=output_dim,
+            feat_d=JCD.size(-1),
+            nhead=args.num_heads,
+            dropout=args.dropout
+        )
     else:  # four_stream
         model = FourStreamGCN_Model(
             num_joints=num_joints,
@@ -168,6 +206,9 @@ def main():
     best_mape = float('inf')
     best_epoch = 0
     best_model_state = None
+
+    # List to store [epoch, MAD, RMSE, MAPE]
+    epoch_metrics = []
     
     print(f"Starting training for {args.epochs} epochs...")
     for epoch in range(args.epochs):
@@ -217,6 +258,9 @@ def main():
         avg_test_mape = test_mape / len(test_loader)
         avg_test_rmse = test_rmse / len(test_loader)
     
+        # Save metrics for current epoch
+        epoch_metrics.append([epoch+1, avg_test_mad, avg_test_rmse, avg_test_mape])
+    
         is_best = False
         if avg_test_rmse < best_rmse:
             best_rmse = avg_test_rmse
@@ -224,6 +268,8 @@ def main():
             best_mape = avg_test_mape
             best_epoch = epoch + 1
             best_model_state = model.state_dict().copy()
+            # Overwrite the best model checkpoint
+            torch.save(best_model_state, glb_model_save_path)
             is_best = True
     
         print(f"Epoch [{epoch+1}/{args.epochs}]")
@@ -234,10 +280,23 @@ def main():
         if is_best:
             print(f"  ✓ New best result!")
         print("-" * 80)
+        
+        # Autosave checkpoint (this file gets overwritten each epoch)
+        checkpoint = {
+            'epoch': epoch + 1,
+            'model_state_dict': model.state_dict(),
+            'optimizer_state_dict': optimizer.state_dict(),
+            'train_loss': avg_train_loss,
+            'test_loss': avg_test_loss,
+            'metrics': {'mad': avg_test_mad, 'rmse': avg_test_rmse, 'mape': avg_test_mape}
+        }
+        torch.save(checkpoint, checkpoint_path)
     
-    if args.save_model and best_model_state is not None:
-        print(f"Saving best model to {args.model_path}")
-        torch.save(best_model_state, args.model_path)
+    # Save the Pareto front of metrics
+    pareto_front = compute_pareto_front(epoch_metrics)
+    pareto_front = np.array(pareto_front)
+    np.save(os.path.join(args.output_folder, f"pareto_front_ex{args.exercise}.npy"), pareto_front)
+    print("Pareto front saved.")
     
     print("\n" + "=" * 40)
     print(f"BEST RESULT (Epoch {best_epoch}):")
@@ -246,8 +305,6 @@ def main():
     print(f"- MAPE: {best_mape:.2f}%")
     print("=" * 40)
     
-    # Create output folder if it doesn't exist
-    os.makedirs(args.output_folder, exist_ok=True)
     print(f"\nSaving visualizations to {args.output_folder}...")
     
     print("Visualizing predictions...")
