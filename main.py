@@ -14,6 +14,7 @@ from data.dataset import CustomDataset
 from models.H2F_GCN import ThreeStreamGCN_ModelvB
 from models.H2F_Shift_GCN import ThreeStreamShift_GCN_ModelvB
 from models.four_stream_gcn import FourStreamGCN_Model
+from models.H2f_Shift_GCN_ConvGRU import ThreeStreamShift_GCN_ModelvB_ConvGRU
 from utils.seed import set_seed
 from utils.metrics import compute_metrics
 from utils.visualization import predict_and_visualize, visualize_skeleton, create_skeleton_animation
@@ -27,7 +28,7 @@ def parse_args():
                         help='Exercise number to use (1-5)')
     
     parser.add_argument('--model', type=str, default='three_stream', 
-                        choices=['three_stream', 'four_stream', 'three_stream_shift_gcn'], 
+                        choices=['three_stream', 'four_stream', 'three_stream_shift_gcn', 'three_stream_shift_gcn_gru'], 
                         help='Model architecture to use')
     parser.add_argument('--hidden_dim', type=int, default=128, help='Hidden dimension size')
     parser.add_argument('--num_layers', type=int, default=3, help='Number of GRU layers')
@@ -175,6 +176,17 @@ def main():
         )
     elif args.model == 'three_stream_shift_gcn':
         model = ThreeStreamShift_GCN_ModelvB(
+            num_joints=num_joints,
+            num_features=num_features,
+            hidden_dim=args.hidden_dim,
+            num_layers=args.num_layers,
+            output_dim=output_dim,
+            feat_d=JCD.size(-1),
+            nhead=args.num_heads,
+            dropout=args.dropout
+        )
+    elif args.model == 'three_stream_shift_gcn_gru':
+        model = ThreeStreamShift_GCN_ModelvB_ConvGRU(
             num_joints=num_joints,
             num_features=num_features,
             hidden_dim=args.hidden_dim,
