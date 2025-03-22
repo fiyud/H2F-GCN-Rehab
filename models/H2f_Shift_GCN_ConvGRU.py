@@ -51,7 +51,6 @@ class ThreeStreamShift_GCN_ModelvB_ConvGRU(nn.Module):
             nn.Linear(hidden_dim * 2, hidden_dim)
         )
         
-        # Replace GRU with ConvGRU with proper device handling
         self.convgru = ConvGRU(
             input_size=(1, 1),
             input_dim=hidden_dim,
@@ -66,11 +65,9 @@ class ThreeStreamShift_GCN_ModelvB_ConvGRU(nn.Module):
         
         self.fc = nn.Linear(hidden_dim, output_dim)
         
-        # Move entire model to appropriate device
         self.to(self.device)
 
     def forward(self, x, edge_index, jcd):
-        # Ensure inputs are on the correct device
         x = x.to(self.device)
         edge_index = edge_index.to(self.device)
         jcd = jcd.to(self.device)
