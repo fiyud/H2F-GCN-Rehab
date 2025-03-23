@@ -66,11 +66,6 @@ def parse_args():
     return args
 
 def compute_pareto_front(metrics_list):
-    """
-    Given a list of metrics [epoch, MAD, RMSE, MAPE], returns the non-dominated (Pareto front) set.
-    A candidate is dominated if there is another candidate that is equal or better in all metrics
-    and strictly better in at least one.
-    """
     pareto = []
     for candidate in metrics_list:
         dominated = False
@@ -88,9 +83,8 @@ def compute_pareto_front(metrics_list):
 
 def main():
     args = parse_args()
-    # Best model save path for best RMSE
     glb_model_save_path = os.path.join(args.output_folder, f"best_model_exercise{args.exercise}_shiftgcn.pth")
-    # Checkpoint file that gets overwritten each epoch
+
     checkpoint_path = os.path.join(args.output_folder, f"checkpoint_ex{args.exercise}.pth")
     
     os.makedirs(args.output_folder, exist_ok=True)
