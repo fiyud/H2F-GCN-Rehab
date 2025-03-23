@@ -10,7 +10,6 @@ class FourStreamGCN_Model(nn.Module):
     def __init__(self, num_joints, num_features, hidden_dim, num_layers, output_dim, feat_d, max_time_step=150, nhead=4, dropout=0.1):
         super(FourStreamGCN_Model, self).__init__()
 
-        # Store dimensions for later use
         self.hidden_dim = hidden_dim
         self.num_joints = num_joints
 
