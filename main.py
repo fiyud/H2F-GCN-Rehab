@@ -8,7 +8,7 @@ import numpy as np
 from torch import optim
 from torch.utils.data import DataLoader
 from sklearn.model_selection import train_test_split
-
+import pickle
 from data.data_loader import load_kimore_data, preprocess_merged_data
 from data.dataset import CustomDataset
 from models.H2F_GCN import ThreeStreamGCN_ModelvB
@@ -92,26 +92,13 @@ def main():
     
     print("Using device:", args.device)
     print(f"Loading Kimore dataset from {args.data_path}...")
-    data = load_kimore_data(args.data_path)
     
-    import pandas as pd
-    df = pd.DataFrame(data)
+    with open(args.data_path, 'rb') as f:
+        data = pickle.load(f)
     
-    cols_to_convert = [col for col in df.columns if '-p' in col or '-o' in col]
-    df[cols_to_convert] = df[cols_to_convert].applymap(lambda x: np.array(x) if isinstance(x, list) else x)
+    df_ex = data['ex' + str(args.exercise)]
     
-    if 2 in df.index and 'Group' in df.columns:
-        df.at[2, 'Group'] = "E"
-        df.at[3, 'Group'] = "E"
-        df.at[4, 'Group'] = "E"
-    
-    df = df.dropna().reset_index(drop=True)
-    
-    df_ex = df[df['Exercise'] == args.exercise].reset_index(drop=True)
-    print(f"Using exercise {args.exercise} data: {len(df_ex)} samples")
-    
-    df_merged = preprocess_merged_data(df_ex)
-    data_tensor, labels_tensor = preprocess_data_and_labels(df_merged, args.chunk_size)
+    data_tensor, labels_tensor = preprocess_data_and_labels(df_ex, args.chunk_size)
     position_data = data_tensor[:, :, :, 4:] 
     
     JCD = get_JCD(position_data)

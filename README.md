@@ -36,7 +36,9 @@ H2F-GCN Rehab/
 
 # Kimore Movement Assessment
 
-This project implements Graph Convolutional Networks (GCNs) for analyzing movement data from the Kimore dataset. The models assess the quality of rehabilitation exercises by predicting clinical assessment scores from motion capture data.
+This project implements Graph Convolutional Networks (GCNs) for analyzing movement data from the Kimore dataset. The models assess the quality of rehabilitation exercises by predicting clinical assessment scores from motion capture data. You can download the preprocessing dataset in the link below:
+
+https://www.dropbox.com/scl/fi/ol1pubop5ntu9f2a8g89q/kimore_exercise_dataset.pkl?rlkey=rkbuude5ukintj6s69brw7icj&st=wjoprd2b&dl=0
 
 ## Features
 
